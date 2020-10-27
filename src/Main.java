@@ -9,6 +9,8 @@
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.opencv.core.*;
@@ -171,10 +173,9 @@ public class Main {
 
 	private static double calculateAverageRotationUpToPi(ArrayList<Double> angles, ArrayList<Double> distances) {
 
-		Double[] dist_arr = toArray(distances);
-
-		int[] sortedIndices = IntStream.range(0, dist_arr.length).boxed()
-				.sorted((i, j) -> dist_arr[i].compareTo(dist_arr[j])).mapToInt(ele -> ele).toArray();
+//		Double[] dist_arr = toArray(distances);
+//		int[] sortedIndices = IntStream.range(0, dist_arr.length).boxed()
+//				.sorted((i, j) -> dist_arr[i].compareTo(dist_arr[j])).mapToInt(ele -> ele).toArray();
 
 		// Do not mind 90° rotation
 		if (!angles.isEmpty()) {
@@ -182,18 +183,23 @@ public class Main {
 				angles.set(i, angles.get(i) % 90);
 			}
 		}
+		
+		// First we sort the angles
+		Collections.sort(angles);
 
 		//
-		int max_angles_number_to_consider = 10;
-		int angles_n = Math.min(sortedIndices.length, max_angles_number_to_consider);
-		ArrayList<Double> angles_to_consider = new ArrayList<>(angles_n);
-		for (int i = 0; i < angles_n - 1; i++) {
-			angles_to_consider.add(angles.get(i));
-		}
+//		int max_angles_number_to_consider = 10;
+//		int angles_n = Math.min(sortedIndices.length, max_angles_number_to_consider);
+//		ArrayList<Double> angles_to_consider = new ArrayList<>(angles_n);
+//		for (int i = 0; i < angles_n - 1; i++) {
+//			angles_to_consider.add(angles.get(i));
+//		}
 
+		List<Double> outliers = getOutliersOfSortedList(angles);
+		
 		// Double mean = calcualteAverage(angles_to_consider);
 		// TODO (Anastasia): get rid of outliers
-		Double median = getMedian(angles);
+		Double median = getMedianOfSortedList(angles);
 
 		Double angleToReturn = median;
 		if (Math.abs(angleToReturn - 90) < angleToReturn)
@@ -253,7 +259,31 @@ public class Main {
 		return result;
 	}
 
-    private static double getMedian(List<Double> data) {
+	// https://stackoverflow.com/questions/18805178/how-to-detect-outliers-in-an-arraylist
+    public static List<Double> getOutliersOfSortedList(List<Double> input) {
+        List<Double> output = new ArrayList<Double>();
+        List<Double> data1 = new ArrayList<Double>();
+        List<Double> data2 = new ArrayList<Double>();
+        if (input.size() % 2 == 0) {
+            data1 = input.subList(0, input.size() / 2);
+            data2 = input.subList(input.size() / 2, input.size());
+        } else {
+            data1 = input.subList(0, input.size() / 2);
+            data2 = input.subList(input.size() / 2 + 1, input.size());
+        }
+        double q1 = getMedianOfSortedList(data1);
+        double q3 = getMedianOfSortedList(data2);
+        double iqr = q3 - q1;
+        double lowerFence = q1 - 1.5 * iqr;
+        double upperFence = q3 + 1.5 * iqr;
+        for (int i = 0; i < input.size(); i++) {
+            if (input.get(i) < lowerFence || input.get(i) > upperFence)
+                output.add(input.get(i));
+        }
+        return output;
+    }
+
+    private static double getMedianOfSortedList(List<Double> data) {
         if (data.size() % 2 == 0)
             return (data.get(data.size() / 2) + data.get(data.size() / 2 - 1)) / 2;
         else
