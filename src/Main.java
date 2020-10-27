@@ -195,7 +195,9 @@ public class Main {
 //			angles_to_consider.add(angles.get(i));
 //		}
 
+		// Remove clearly aberrant angles
 		List<Double> outliers = getOutliersOfSortedList(angles);
+		angles.removeAll(outliers);
 		
 		// Double mean = calcualteAverage(angles_to_consider);
 		// TODO (Anastasia): get rid of outliers
