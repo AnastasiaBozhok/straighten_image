@@ -193,7 +193,7 @@ public class Main {
 
 		// Double mean = calcualteAverage(angles_to_consider);
 		// TODO (Anastasia): get rid of outliers
-		Double median = findMedian(toArray(angles));
+		Double median = getMedian(angles);
 
 		Double angleToReturn = median;
 		if (Math.abs(angleToReturn - 90) < angleToReturn)
@@ -253,18 +253,10 @@ public class Main {
 		return result;
 	}
 
-	// Function for calculating median
-	public static double findMedian(Double[] a) {
-		int n = a.length;
-
-		// First we sort the array
-		Arrays.sort(a);
-
-		// check for even case
-		if (n % 2 != 0)
-			return (double) a[n / 2];
-
-		return (double) (a[(n - 1) / 2] + a[n / 2]) / 2.0;
-	}
-
+    private static double getMedian(List<Double> data) {
+        if (data.size() % 2 == 0)
+            return (data.get(data.size() / 2) + data.get(data.size() / 2 - 1)) / 2;
+        else
+            return data.get(data.size() / 2);
+    }
 }
