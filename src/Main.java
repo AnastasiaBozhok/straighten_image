@@ -8,21 +8,30 @@
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.IntStream;
-import org.opencv.core.*;
+
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
+import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 public class Main {
 
-	private static String outputFolder = "images/out/";
 
-	private static int close_kernel_size = 10;
-	private static int dilate_lines_kernel_size = 4;
+
+	private static final String outputFolder = "images/out/";
+
+	// 0 -- use all detected lines, 1 -- only those of the image size (probably none)
+	private static final double min_line_length_to_consider_percentage = 0.02;
+	private static final int close_kernel_size = 10;
+	private static final int dilate_lines_kernel_size = 4;
 
 	public static void main(String[] args) {
 		// For OpenCV (this is compulsory)
@@ -112,7 +121,8 @@ public class Main {
 				Point end = new Point(x2, y2);
 
 				double distance = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-				double min_line_length_to_consider = 0.01 * Math.min(binaryImage.width(), binaryImage.height());
+				double min_line_length_to_consider = min_line_length_to_consider_percentage 
+						* Math.min(binaryImage.width(), binaryImage.height());
 
 				if (distance > min_line_length_to_consider) {
 					// Draw line on the "debug" image for visualization
