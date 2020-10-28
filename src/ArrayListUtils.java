@@ -2,7 +2,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
 
-public class ArrayUtils {
+public class ArrayListUtils {
 
 	public static void sortArraysByFirstArray(ArrayList<Double> arrayToSortBy, ArrayList<Double> array2,
 			ArrayList<Double> arrayOneSortedByFirst, ArrayList<Double> arrayTwoSortedByFirst) {
@@ -26,13 +26,13 @@ public class ArrayUtils {
 		return dist_arr;
 	}
 
-	public static Double calcualteAverage(ArrayList<Double> angles) {
+	public static Double calcualteAverage(ArrayList<Double> array) {
 		Double sum = 0d;
-		if (!angles.isEmpty()) {
-			for (Double angle : angles) {
-				sum += angle % 90;
+		if (!array.isEmpty()) {
+			for (Double angle : array) {
+				sum += angle;
 			}
-			return sum / angles.size();
+			return sum / array.size();
 		}
 		return sum;
 	}
@@ -66,5 +66,20 @@ public class ArrayUtils {
 			return (data.get(data.size() / 2) + data.get(data.size() / 2 - 1)) / 2;
 		else
 			return data.get(data.size() / 2);
+	}
+
+	public static double getStandartDeviation(ArrayList<Double> array) {
+		double mean = 0.0;
+		double var_sum = 0.0;
+		double numi = 0.0;
+
+		mean = calcualteAverage(array);
+
+		for (Double el : array) {
+			numi = Math.pow((el - mean), 2);
+			var_sum += numi;
+		}
+
+		return Math.sqrt(var_sum / array.size());
 	}
 }
