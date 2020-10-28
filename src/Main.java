@@ -10,12 +10,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.stream.IntStream;
 
 import org.opencv.core.Core;
-import org.opencv.core.CvException;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
@@ -28,7 +24,9 @@ import org.opencv.imgproc.Imgproc;
 
 public class Main {
 
+	private static final String inputFolder = "images/in/";
 	private static final String outputFolder = "images/out/";
+	private static final String debugFolder = "images/debug/";
 
 	// 0 -- use all detected lines, 1 -- only those of the image size (probably
 	// none)
@@ -37,34 +35,43 @@ public class Main {
 	private static final double close_kernel_size_as_percentage = 0.01;
 	private static final int min_close_kernel_size_pixels = 10;
 	private static final int dilate_lines_kernel_size_pixels = 4;
+	private static final int max_angles_number_to_consider = 20;
 
 	public static void main(String[] args) {
+
 		// For OpenCV (this is compulsory)
-		// nu.pattern.OpenCV.loadShared();
 		nu.pattern.OpenCV.loadLocally();
 		// System.loadLibrary(org.opencv.core.Core.NATIVE_LIBRARY_NAME);
 
 		System.out.println("Started");
 
-		// Creating the output directory
-		File file = new File(outputFolder);
-		file.mkdir();
+		// Creating the output directories
+		new File(outputFolder).mkdir();
+		new File(debugFolder).mkdir();
 
-		// read our original image
-//		String fileName = "images/1.jpg";
-//		String fileName = "images/boxesOCR/barcodeExample.png";
-//		String fileName = "images/boxesOCR/5.jpg"; // problem
-		String fileName = "images/boxesOCR/2.jpg";
-		
-		Mat image = Imgcodecs.imread(fileName);
-		if (image.width() == 0) {
-			System.out.println("Problem reading the image from '" + fileName + "'. Exit.");
-			return;
+		// Get the images
+		File folder = new File(inputFolder);
+		File[] listOfFiles = folder.listFiles();
+		for (File file : listOfFiles) {
+			if (file.isFile()) {
+				String fileName = file.getName();
+
+				// read the image
+				Mat image = Imgcodecs.imread(inputFolder + fileName);
+				if (image.width() == 0) {
+					System.out.println("Problem reading the image from '" + fileName + "'. Exit.");
+				} else {
+
+					System.out.println("Treating the image " + fileName + "...");
+
+					// Straight it out
+					Mat straightImage = straightenImage(image);
+
+					// Write the results
+					Imgcodecs.imwrite(outputFolder + fileName, straightImage);
+				}
+			}
 		}
-
-		// Straight it out! :)
-		Mat straightImage = straightenImage(image);
-		Imgcodecs.imwrite(outputFolder + "straightImage.jpg", straightImage);
 
 		System.out.println("Finished");
 	}
@@ -82,7 +89,7 @@ public class Main {
 		// Create binary image
 		int max_value = 255; // TODO: find grayscale.max()
 		Imgproc.threshold(grayscale, binary, max_value / 2, max_value, Imgproc.THRESH_BINARY_INV);
-		Imgcodecs.imwrite(outputFolder + "threshold.jpg", binary);
+		Imgcodecs.imwrite(debugFolder + "threshold.jpg", binary);
 
 		// "Connect" the letters and words
 		// initially only one Mat kernel =
@@ -95,18 +102,18 @@ public class Main {
 		Imgproc.morphologyEx(binary, binary, Imgproc.MORPH_CLOSE, kernel);
 		kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(1, close_kernel_size));
 		Imgproc.morphologyEx(binary, binary, Imgproc.MORPH_CLOSE, kernel);
-		Imgcodecs.imwrite(outputFolder + "afterClose.jpg", binary);
+		Imgcodecs.imwrite(debugFolder + "afterClose.jpg", binary);
 
 		// Edge detection
 		Imgproc.Canny(binary, binary, 50, 200, 3, false);
-		Imgcodecs.imwrite(outputFolder + "afterCanny.jpg", binary);
+		Imgcodecs.imwrite(debugFolder + "afterCanny.jpg", binary);
 
 		// Dilate lines width for easier detection
 		kernel = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE,
 				new Size(dilate_lines_kernel_size_pixels, dilate_lines_kernel_size_pixels));
 		Imgproc.morphologyEx(binary, binary, Imgproc.MORPH_DILATE, kernel);
 
-		Imgcodecs.imwrite(outputFolder + "processedImage.jpg", binary);
+		Imgcodecs.imwrite(debugFolder + "processedImage.jpg", binary);
 		return binary;
 	}
 
@@ -149,9 +156,8 @@ public class Main {
 
 					// Calculate the angle we need
 					angle = calculateAngleFromPoints(start, end);
-					if (angle < 0) {
+					if (angle < 0)
 						angle = angle + 180;
-					}
 
 					angles.add(angle);
 					distances.add(distance);
@@ -159,7 +165,7 @@ public class Main {
 			}
 		}
 
-		Imgcodecs.imwrite(outputFolder + "detectedLines.jpg", debugImage);
+		Imgcodecs.imwrite(debugFolder + "detectedLines.jpg", debugImage);
 
 		angle = estimateRotationAngleUpToPi(angles, distances);
 		return angle;
@@ -207,47 +213,36 @@ public class Main {
 				angles.set(i, angles.get(i) % 90);
 			}
 		}
-		
-		// First we sort the angles (keep indices to also sort distances)
-		Double[] anglesArray = toArray(angles);
-		int[] sortedIndicesAngles = IntStream.range(0, anglesArray.length).boxed()
-				.sorted((i, j) -> anglesArray[i].compareTo(anglesArray[j])).mapToInt(ele -> ele).toArray();
+
+		// First we sort the angles
 		ArrayList<Double> anglesSortedByAngles = new ArrayList<>();
-		ArrayList<Double> distancesSortedByAngles = new ArrayList<>();		
-		for (int i = 0; i < angles.size(); i++) {
-			anglesSortedByAngles.add(angles.get(sortedIndicesAngles[i]));
-			distancesSortedByAngles.add(distances.get(sortedIndicesAngles[i]));
-		}
+		ArrayList<Double> distancesSortedByAngles = new ArrayList<>();
+		ArrayUtils.sortArraysByFirstArray(angles, distances, anglesSortedByAngles, distancesSortedByAngles);
 
 		// Remove clearly aberrant angles
-		List<Integer> outliersIndices = getOutliersIndicesOfSortedList(anglesSortedByAngles);
-		for (int i = outliersIndices.size()-1; i >= 0; i--) {
+		List<Integer> outliersIndices = ArrayUtils.getOutliersIndicesOfSortedList(anglesSortedByAngles);
+		for (int i = outliersIndices.size() - 1; i >= 0; i--) {
 			anglesSortedByAngles.remove((int) outliersIndices.get(i));
 			distancesSortedByAngles.remove((int) outliersIndices.get(i));
 		}
 
-		// Sort distances (keep indices to also sort angles)
-		Double[] distArray = toArray(distancesSortedByAngles);
-		int[] sortedIndicesDistances = IntStream.range(0, distArray.length).boxed()
-				.sorted((i, j) -> distArray[i].compareTo(distArray[j])).mapToInt(ele -> ele).toArray();
+		// Sort distances from shortest to longest (to find the longest lines)
 		ArrayList<Double> anglesSortedByDistance = new ArrayList<>();
-		ArrayList<Double> distancesSortedByDistance = new ArrayList<>();		
-		for (int i = sortedIndicesDistances.length - 1; i >= 0; i--) {
-			anglesSortedByDistance.add(anglesSortedByAngles.get(sortedIndicesDistances[i]));
-			distancesSortedByDistance.add(distancesSortedByAngles.get(sortedIndicesDistances[i]));
-		}
+		ArrayList<Double> distancesSortedByDistance = new ArrayList<>();
+		ArrayUtils.sortArraysByFirstArray(distancesSortedByAngles, anglesSortedByAngles, distancesSortedByDistance,
+				anglesSortedByDistance);
+		// From longest to shortest
+		Collections.reverse(anglesSortedByDistance);
 
 		// Consider only max_angles_number_to_consider longest lines
-		int max_angles_number_to_consider = 20;
 		int angles_n = Math.min(anglesSortedByDistance.size(), max_angles_number_to_consider);
 		ArrayList<Double> angles_to_consider = new ArrayList<>(angles_n);
-		for (int i = 0; i < angles_n - 1; i++) {
+		for (int i = 0; i < angles_n; i++) {
 			angles_to_consider.add(anglesSortedByDistance.get(i));
 		}
-		
-		// TODO (Anastasia): get rid of outliers
-//		Double angleToReturn = getMedianOfSortedList(angles);
-		Double angleToReturn = getMedianOfSortedList(angles_to_consider);
+
+		// TODO: Test both options
+		Double angleToReturn = ArrayUtils.getMedianOfSortedList(angles_to_consider);
 //		Double angleToReturn = calcualteAverage(angles_to_consider);
 
 		if (Math.abs(angleToReturn - 90) < angleToReturn)
@@ -256,24 +251,7 @@ public class Main {
 		return angleToReturn;
 	}
 
-	private static Double[] toArray(ArrayList<Double> arrList) {
-		Double[] dist_arr_for_copy = new Double[arrList.size()];
-		dist_arr_for_copy = arrList.toArray(dist_arr_for_copy);
-		Double[] dist_arr = dist_arr_for_copy.clone();
-		return dist_arr;
-	}
-
-	private static Double calcualteAverage(ArrayList<Double> angles) {
-		Double sum = 0d;
-		if (!angles.isEmpty()) {
-			for (Double angle : angles) {
-				sum += angle % 90;
-			}
-			return sum / angles.size();
-		}
-		return sum;
-	}
-
+	// https://stackoverflow.com/questions/44752240/how-to-remove-shadow-from-scanned-images-using-opencv
 	private static Mat remove_shadow(Mat image) {
 		List<Mat> rgb_planes = new ArrayList<Mat>();
 		Core.split(image, rgb_planes);
@@ -288,13 +266,19 @@ public class Main {
 		Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(7, 7));
 
 		for (Mat plane : rgb_planes) {
-
+//			Imgcodecs.imwrite(outputFolder + "shadow1.jpg", plane);
+			
 			// Dilate
 			Imgproc.morphologyEx(plane, binary, Imgproc.MORPH_DILATE, kernel);
+//			Imgcodecs.imwrite(outputFolder + "shadow2.jpg", binary);
 			Imgproc.medianBlur(binary, bg_img, 21);
+//			Imgcodecs.imwrite(outputFolder + "shadow3.jpg", bg_img);
 			Core.absdiff(plane, bg_img, diff_img);
+//			Imgcodecs.imwrite(outputFolder + "shadow4.jpg", diff_img);
 			Core.absdiff(diff_img, new Scalar(255), diff_img);
+//			Imgcodecs.imwrite(outputFolder + "shadow5.jpg", diff_img);
 			Core.normalize(diff_img, norm_img, 0, 255, Core.NORM_MINMAX);
+//			Imgcodecs.imwrite(outputFolder + "shadow6.jpg", norm_img);
 
 			result_planes.add(diff_img);
 			result_norm_planes.add(norm_img);
@@ -303,38 +287,7 @@ public class Main {
 		Core.merge(result_planes, result);
 		Core.merge(result_norm_planes, result);
 
-		Imgcodecs.imwrite(outputFolder + "shadowless.jpg", result);
+		Imgcodecs.imwrite(debugFolder + "shadowless.jpg", result);
 		return result;
-	}
-
-	// https://stackoverflow.com/questions/18805178/how-to-detect-outliers-in-an-arraylist
-	public static List<Integer> getOutliersIndicesOfSortedList(List<Double> input) {
-		List<Integer> outputIndices = new ArrayList<Integer>();
-		List<Double> data1 = new ArrayList<Double>();
-		List<Double> data2 = new ArrayList<Double>();
-		if (input.size() % 2 == 0) {
-			data1 = input.subList(0, input.size() / 2);
-			data2 = input.subList(input.size() / 2, input.size());
-		} else {
-			data1 = input.subList(0, input.size() / 2);
-			data2 = input.subList(input.size() / 2 + 1, input.size());
-		}
-		double q1 = getMedianOfSortedList(data1);
-		double q3 = getMedianOfSortedList(data2);
-		double iqr = q3 - q1;
-		double lowerFence = q1 - 1.5 * iqr;
-		double upperFence = q3 + 1.5 * iqr;
-		for (int i = 0; i < input.size(); i++) {
-			if (input.get(i) < lowerFence || input.get(i) > upperFence)
-				outputIndices.add(i);
-		}
-		return outputIndices;
-	}
-
-	private static double getMedianOfSortedList(List<Double> data) {
-		if (data.size() % 2 == 0)
-			return (data.get(data.size() / 2) + data.get(data.size() / 2 - 1)) / 2;
-		else
-			return data.get(data.size() / 2);
 	}
 }
