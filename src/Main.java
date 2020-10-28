@@ -36,6 +36,7 @@ public class Main {
 	private static final int min_close_kernel_size_pixels = 10;
 	private static final int dilate_lines_kernel_size_pixels = 4;
 	private static final int max_angles_number_to_consider = 20;
+	private static final int acceptable_angle_deviation = 7;
 
 	public static void main(String[] args) {
 
@@ -210,17 +211,21 @@ public class Main {
 		// Do not mind 90° rotation
 		if (!angles.isEmpty()) {
 			for (int i = 0; i < angles.size(); i++) {
-				angles.set(i, angles.get(i) % 90);
+				double angle_i = angles.get(i);
+				angle_i = angle_i % 90;
+				if (Math.abs(angle_i - 90) < angle_i)
+					angle_i =  angle_i - 90;
+				angles.set(i, angle_i);
 			}
 		}
 
 		// First we sort the angles
 		ArrayList<Double> anglesSortedByAngles = new ArrayList<>();
 		ArrayList<Double> distancesSortedByAngles = new ArrayList<>();
-		ArrayUtils.sortArraysByFirstArray(angles, distances, anglesSortedByAngles, distancesSortedByAngles);
+		ArrayListUtils.sortArraysByFirstArray(angles, distances, anglesSortedByAngles, distancesSortedByAngles);
 
 		// Remove clearly aberrant angles
-		List<Integer> outliersIndices = ArrayUtils.getOutliersIndicesOfSortedList(anglesSortedByAngles);
+		List<Integer> outliersIndices = ArrayListUtils.getOutliersIndicesOfSortedList(anglesSortedByAngles);
 		for (int i = outliersIndices.size() - 1; i >= 0; i--) {
 			anglesSortedByAngles.remove((int) outliersIndices.get(i));
 			distancesSortedByAngles.remove((int) outliersIndices.get(i));
@@ -229,10 +234,12 @@ public class Main {
 		// Sort distances from shortest to longest (to find the longest lines)
 		ArrayList<Double> anglesSortedByDistance = new ArrayList<>();
 		ArrayList<Double> distancesSortedByDistance = new ArrayList<>();
-		ArrayUtils.sortArraysByFirstArray(distancesSortedByAngles, anglesSortedByAngles, distancesSortedByDistance,
+		ArrayListUtils.sortArraysByFirstArray(distancesSortedByAngles, anglesSortedByAngles, distancesSortedByDistance,
 				anglesSortedByDistance);
-		// From longest to shortest
-		Collections.reverse(anglesSortedByDistance);
+		// From longest line to shortest
+		Collections.reverse(anglesSortedByDistance);		
+		// Unused, for debug only
+		Collections.reverse(distancesSortedByDistance);
 
 		// Consider only max_angles_number_to_consider longest lines
 		int angles_n = Math.min(anglesSortedByDistance.size(), max_angles_number_to_consider);
@@ -241,12 +248,14 @@ public class Main {
 			angles_to_consider.add(anglesSortedByDistance.get(i));
 		}
 
+		if (ArrayListUtils.getStandartDeviation(angles_to_consider) > acceptable_angle_deviation) {
+			System.out.println("The algorithm didn't work, the image will not be rotated.");
+			return 0;
+		}
+		
 		// TODO: Test both options
-		Double angleToReturn = ArrayUtils.getMedianOfSortedList(angles_to_consider);
+		Double angleToReturn = ArrayListUtils.getMedianOfSortedList(angles_to_consider);
 //		Double angleToReturn = calcualteAverage(angles_to_consider);
-
-		if (Math.abs(angleToReturn - 90) < angleToReturn)
-			angleToReturn = angleToReturn - 90;
 
 		return angleToReturn;
 	}
