@@ -36,7 +36,7 @@ public class Main {
 	private static final int min_close_kernel_size_pixels = 10;
 	private static final int dilate_lines_kernel_size_pixels = 4;
 	private static final int max_angles_number_to_consider = 20;
-	private static final int acceptable_angle_deviation = 7;
+	private static final int acceptable_angle_deviation = 5;
 
 	public static void main(String[] args) {
 
